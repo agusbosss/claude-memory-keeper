@@ -1,0 +1,9 @@
+# El DNI de este propio repo (lo estampa el hook al abrirlo con Claude Code)
+.claude-project-id
+
+# Registro real del usuario — nunca commitear (usar project-registry.example.json)
+project-registry.json
+
+# Ruido de macOS / editores
+.DS_Store
+*.swp

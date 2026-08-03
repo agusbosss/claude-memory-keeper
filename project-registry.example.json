@@ -1,0 +1,28 @@
+{
+  "_config": {
+    "roots": [
+      "/Users/youruser/Developer",
+      "/Users/youruser/Projects"
+    ],
+    "version": 1
+  },
+  "projects": {
+    "a1b2c3d4": {
+      "nombre": "my-web-app",
+      "path": "/Users/youruser/Developer/my-web-app",
+      "key": "-Users-youruser-Developer-my-web-app",
+      "historial": [
+        "2025-01-15 10:00 · enrolado en /Users/youruser/Developer/my-web-app"
+      ]
+    },
+    "e5f6a7b8": {
+      "nombre": "university-notes",
+      "path": "/Users/youruser/Projects/2nd-year/university-notes",
+      "key": "-Users-youruser-Projects-2nd-year-university-notes",
+      "historial": [
+        "2025-01-15 10:00 · enrolado en /Users/youruser/Downloads/university-notes",
+        "2025-02-01 09:30 · /Users/youruser/Downloads/university-notes → /Users/youruser/Projects/2nd-year/university-notes"
+      ]
+    }
+  }
+}
