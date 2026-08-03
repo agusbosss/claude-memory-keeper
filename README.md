@@ -2,7 +2,7 @@
 
 **Keep [Claude Code](https://claude.com/claude-code) project memories connected when you move, rename, or reorganize project folders.**
 
-Claude Code stores each project's memory and session history under a key derived from the folder's **absolute path**. Move or rename the folder and that key changes — so the memory gets orphaned and Claude no longer finds it. This tool fixes that: it gives every project a stable **ID that travels inside the folder**, and reconnects the memory automatically whenever a folder moves.
+Claude Code stores each project's memory and session history under a key derived from the folder's **absolute path**. Move or rename the folder and that key changes — so the memory gets orphaned and Claude no longer finds it. This tool fixes that: it gives every project a stable **ID that travels inside the folder**, and reconnects everything automatically whenever a folder moves — the memory, the session transcripts (rewriting the `cwd` hardcoded inside them), **and** the per-project config in `~/.claude.json` (MCP servers/connectors, permissions, trust).
 
 > The tool is written in Spanish (comments and CLI output). This README is in English. Everything is plain Python 3, no dependencies.
 
@@ -71,7 +71,8 @@ With those, at any time the tool can: scan for the IDs, compare "where the ID is
 ## Usage
 
 ```bash
-# Reconnect everything that moved + enroll new projects (the main command)
+# Reconnect everything that moved + enroll new projects (the main command).
+# Also rewrites the cwd inside session .jsonl files and migrates ~/.claude.json config.
 python3 ~/.claude/scripts/claude_projects.py reconcile
 
 # Show the registry (which project lives where + move count)
@@ -79,7 +80,16 @@ python3 ~/.claude/scripts/claude_projects.py status
 
 # Enroll / reconnect a single folder (this is what the hook runs)
 python3 ~/.claude/scripts/claude_projects.py enroll "/path/to/project"
+
+# Migrate only ~/.claude.json per-project config (MCP/connectors, permissions, trust)
+# to the new paths — non-destructive. Takes effect after restarting Claude Code.
+python3 ~/.claude/scripts/claude_projects.py sync-config
+
+# Remove orphaned ~/.claude.json entries that are already migrated or hold no config
+python3 ~/.claude/scripts/claude_projects.py prune-config
 ```
+
+> **Why more than memory?** Claude Code ties *several* things to the absolute path, in different files: memory + transcripts under `~/.claude/projects/<key>/` (and each `.jsonl` hardcodes its `cwd` inside), and per-project config under `~/.claude.json` (MCP servers, permissions, trust). A move breaks all of them. `reconcile` handles the lot; `sync-config`/`prune-config` are there if you only need the `~/.claude.json` side.
 
 There's also `claude-mv-project.sh`, a standalone helper to move **one** project by giving the old and new paths explicitly (moves the folder and reconnects the memory in one shot).
 
@@ -106,6 +116,7 @@ def enc(path):
 
 - It **never deletes** memory. When it reconnects, it **archives** the old key under `~/.claude/projects-archive/` (timestamped).
 - When copying, it does **not overwrite** files that already exist at the destination.
+- Editing `~/.claude.json` is **non-destructive** (config is only *added* where missing, never overwritten) and it **backs up** `~/.claude.json` before any write. `prune-config` only removes an orphaned entry once its config already exists at the live path (or the entry has no config).
 - Nested projects are supported.
 - If after reconnecting you open Claude in the folder and it doesn't remember, the real key differs — check the name created under `~/.claude/projects/` and adjust.
 

@@ -20,8 +20,17 @@ Registro: `~/.claude/project-registry.json`. Backups: `~/.claude/projects-archiv
 ```bash
 python3 ~/.claude/scripts/claude_projects.py reconcile
 ```
-Escanea las raíces vigiladas, enrola proyectos nuevos y reconecta los movidos. Después
-mostrar al usuario el resumen (qué se enroló, qué se reconectó) tal cual lo imprime el script.
+Escanea las raíces vigiladas, enrola proyectos nuevos y reconecta los movidos. Reconecta
+memoria + transcripts (reescribiendo el `cwd` interno de los `.jsonl`) y además migra la
+config por-proyecto de `~/.claude.json` (servidores MCP, permisos, confianza). Después
+mostrar al usuario el resumen tal cual lo imprime el script. Los cambios de `~/.claude.json`
+**toman efecto al reiniciar Claude Code**.
+
+**"Se desconectó un conector/MCP/permiso al mover"** → es config de `~/.claude.json`. Correr:
+```bash
+python3 ~/.claude/scripts/claude_projects.py sync-config     # migra MCP/permisos/confianza a la ruta nueva (no destructivo)
+python3 ~/.claude/scripts/claude_projects.py prune-config    # limpia entradas huérfanas ya migradas o sin config
+```
 
 **"Mostrame el estado / qué proyectos hay"** → correr:
 ```bash
