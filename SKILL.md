@@ -32,6 +32,24 @@ python3 ~/.claude/scripts/claude_projects.py sync-config     # migra MCP/permiso
 python3 ~/.claude/scripts/claude_projects.py prune-config    # limpia entradas huérfanas ya migradas o sin config
 ```
 
+**"Dejó de funcionar un plugin / desaparecieron comandos o skills de un plugin al mover"** →
+el marketplace del plugin estaba registrado como `directory` (ruta local) y apunta a la ruta
+vieja (ver `~/.claude/plugins/known_marketplaces.json`). `reconcile` YA lo detecta y avisa;
+también podés correr:
+```bash
+python3 ~/.claude/scripts/claude_projects.py check-plugins
+```
+El arreglo **no es automático** (repuntar un marketplace requiere el CLI). Con la ruta nueva que
+sugiere el detector:
+```bash
+claude plugin marketplace remove <nombre-marketplace>
+claude plugin marketplace add "<ruta-nueva>"
+claude plugin install <plugin>@<nombre-marketplace> --scope user
+```
+Más robusto (recomendarlo): apuntar el marketplace al **git URL** del repo en vez de a la ruta
+local — así no se rompe nunca al mover. Requiere que el plugin esté commiteado y pusheado. Todo
+esto **toma efecto al reiniciar Claude Code**. Solo aplica a los pocos repos que hostean un plugin.
+
 **"Mostrame el estado / qué proyectos hay"** → correr:
 ```bash
 python3 ~/.claude/scripts/claude_projects.py status

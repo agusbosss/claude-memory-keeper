@@ -87,9 +87,24 @@ python3 ~/.claude/scripts/claude_projects.py sync-config
 
 # Remove orphaned ~/.claude.json entries that are already migrated or hold no config
 python3 ~/.claude/scripts/claude_projects.py prune-config
+
+# Detect plugin marketplaces registered by local path that now point at a moved repo
+python3 ~/.claude/scripts/claude_projects.py check-plugins
 ```
 
-> **Why more than memory?** Claude Code ties *several* things to the absolute path, in different files: memory + transcripts under `~/.claude/projects/<key>/` (and each `.jsonl` hardcodes its `cwd` inside), and per-project config under `~/.claude.json` (MCP servers, permissions, trust). A move breaks all of them. `reconcile` handles the lot; `sync-config`/`prune-config` are there if you only need the `~/.claude.json` side.
+> **Why more than memory?** Claude Code ties *several* things to the absolute path, in different files: memory + transcripts under `~/.claude/projects/<key>/` (and each `.jsonl` hardcodes its `cwd` inside), per-project config under `~/.claude.json` (MCP servers, permissions, trust), and plugin marketplaces registered as a local `directory` path in `~/.claude/plugins/known_marketplaces.json`. A move breaks all of them. `reconcile` reconnects memory + transcripts + `~/.claude.json` automatically, and **warns** about broken plugin marketplaces (those it can't safely auto-fix — see below).
+
+### Plugin marketplaces (the one it warns about instead of fixing)
+
+If a repo hosts a Claude Code plugin marketplace registered by **local path** (`source: directory`), moving that repo breaks it — the plugin's commands/skills silently disappear. Re-pointing a marketplace isn't a simple path edit; it needs the CLI. So `reconcile` (and `check-plugins`) **detects and reports** it with the fix, using the new location it inferred:
+
+```bash
+claude plugin marketplace remove <name>
+claude plugin marketplace add "<new-path>"
+claude plugin install <plugin>@<name> --scope user
+```
+
+**More robust:** point the marketplace at the repo's **git URL** instead of a local path — then moving the folder never breaks it. Requires the plugin to be committed and pushed. All of this takes effect after restarting Claude Code.
 
 There's also `claude-mv-project.sh`, a standalone helper to move **one** project by giving the old and new paths explicitly (moves the folder and reconnects the memory in one shot).
 

@@ -16,11 +16,11 @@ Subcomandos:
   enroll <ruta>   Estampa el DNI en esa carpeta (si falta), la registra y —si se
                   movió— reconecta su memoria. Rápido, para el hook SessionStart.
   reconcile       Escanea las carpetas raíz, enrola proyectos nuevos y reconecta
-                  todos los que se hayan movido (memoria + .jsonl con cwd reescrito
-                  + config de ~/.claude.json). Para "moví varias cosas, ordená".
+                  todos los que se hayan movido. Para "moví varias cosas, ordená".
   sync-config     Migra la config por-proyecto de ~/.claude.json (MCP, permisos,
                   confianza) a la ruta nueva. No destructivo. Efecto al reiniciar.
   prune-config    Limpia entradas huérfanas de ~/.claude.json ya migradas o sin config.
+  check-plugins   Detecta marketplaces de plugins (ruta local) que apuntan a repos movidos.
   status          Muestra el registro (qué proyecto vive dónde + historial).
 
 Config (dentro del registro, editable): _config.roots = carpetas a vigilar.
@@ -34,6 +34,7 @@ PROJECTS = HOME / ".claude" / "projects"
 ARCHIVE  = HOME / ".claude" / "projects-archive"
 REGISTRY = HOME / ".claude" / "project-registry.json"
 CLAUDE_JSON = HOME / ".claude.json"   # config global por-proyecto (indexada por ruta): MCP, permisos, confianza
+MARKETPLACES = HOME / ".claude" / "plugins" / "known_marketplaces.json"  # marketplaces de plugins (algunos por ruta local)
 MARKER   = ".claude-project-id"
 # Claves de config por-proyecto que hay que migrar cuando una carpeta se mueve.
 CONFIG_KEYS = ("mcpServers", "enabledMcpjsonServers", "disabledMcpjsonServers",
@@ -193,6 +194,35 @@ def prune_claude_json(reg: dict):
     return removed
 
 
+def check_plugin_marketplaces(reg: dict):
+    """Detecta marketplaces de plugins registrados como 'directory' (ruta local) cuyo
+    path ya no existe (repo movido). NO los arregla solo: repuntar un marketplace requiere
+    comandos del CLI (`claude plugin marketplace remove/add` + reinstalar), así que solo
+    AVISA con el arreglo. Devuelve lista de dicts {name, old, suggested}."""
+    if not MARKETPLACES.exists():
+        return []
+    try:
+        data = json.loads(MARKETPLACES.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    # basename -> ruta actual (proyectos vivos del registro)
+    cur = {}
+    for e in reg["projects"].values():
+        p = e["path"]
+        if os.path.isdir(p):
+            cur.setdefault(os.path.basename(p), p)
+    broken = []
+    for name, info in data.items():
+        src = (info or {}).get("source", {})
+        if src.get("source") != "directory":
+            continue  # los de github/git son inmunes a mover carpetas
+        path = src.get("path") or info.get("installLocation")
+        if path and not os.path.isdir(path):
+            broken.append({"name": name, "old": path,
+                           "suggested": cur.get(os.path.basename(path))})
+    return broken
+
+
 def process_folder(path: str, reg: dict, force_mint: bool):
     """Procesa UNA carpeta: enrola si falta DNI y reconecta si se movió.
     force_mint=True (hook): estampa DNI aunque todavía no haya data de Claude.
@@ -286,8 +316,30 @@ def cmd_reconcile():
         print("Config de ~/.claude.json migrada (MCP/permisos/confianza):")
         for old, new, keys in cfg_changes:
             print(f"  ⚙ {new}  ←  [{', '.join(keys)}]")
-    if not enrolled and not moved and not cfg_changes:
+    broken = check_plugin_marketplaces(reg)
+    if broken:
+        print("\n⚠ MARKETPLACES DE PLUGINS ROTOS (apuntan a rutas viejas — arreglo manual):")
+        for b in broken:
+            print(f"  ✗ '{b['name']}' → {b['old']}")
+            _print_plugin_fix(b)
+    if not enrolled and not moved and not cfg_changes and not broken:
         print("Todo ya estaba en orden. Nada que reconectar.")
+
+
+def _print_plugin_fix(b):
+    """Imprime los comandos para repuntar un marketplace de plugin roto."""
+    new = b.get("suggested")
+    name = b["name"]
+    if new:
+        print(f"      nueva ubicación detectada: {new}")
+        print(f"      arreglo:  claude plugin marketplace remove {name}")
+        print(f"                claude plugin marketplace add \"{new}\"")
+        print(f"                claude plugin install <plugin>@{name} --scope user")
+    else:
+        print(f"      no encontré la ubicación nueva; repuntalo a mano o al git URL del repo:")
+        print(f"                claude plugin marketplace remove {name}")
+        print(f"                claude plugin marketplace add <ruta-nueva-o-git-url>")
+    print(f"      (más robusto: apuntar al git URL en vez de ruta local; toma efecto al reiniciar Claude Code)")
 
 def cmd_status():
     reg = load_registry()
@@ -327,6 +379,16 @@ if __name__ == "__main__":
             for p in removed: print(f"  − {p}")
         else:
             print("No hay entradas huérfanas seguras de eliminar.")
+    elif cmd == "check-plugins":
+        reg = load_registry()
+        broken = check_plugin_marketplaces(reg)
+        if broken:
+            print("Marketplaces de plugins rotos (apuntan a rutas viejas):")
+            for b in broken:
+                print(f"  ✗ '{b['name']}' → {b['old']}")
+                _print_plugin_fix(b)
+        else:
+            print("Todos los marketplaces de plugins apuntan a rutas válidas (o son git).")
     elif cmd == "status":
         cmd_status()
     else:
